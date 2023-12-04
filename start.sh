@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "running bash bitches"
+echo "running mysql initialisation script"
 
 mysql -u root -proot -e "USE $MYSQL_DATABASE;
 CREATE TABLE DeliveryOrders (
