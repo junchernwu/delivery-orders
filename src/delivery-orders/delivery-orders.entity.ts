@@ -5,10 +5,10 @@ export enum OrderStatus {
   UNASSIGNED = 'unassigned',
 }
 
-@Entity()
-export class Order {
+@Entity({ name: 'DeliveryOrders' })
+export class DeliveryOrder {
   @PrimaryGeneratedColumn('uuid')
-  id: number;
+  orderId: string;
 
   @Column({
     type: 'enum',

@@ -3,6 +3,7 @@ import {
   Client,
   DistanceMatrixResponse,
 } from '@googlemaps/google-maps-services-js';
+import { FailureGettingDistance } from '../ExceptionHandler/CustomErrors';
 
 @Injectable()
 export class DistanceService {
@@ -18,14 +19,13 @@ export class DistanceService {
         params: {
           origins: [`${origin[0]},${origin[1]}`],
           destinations: [`${destination[0]},${destination[1]}`],
-          key: 'AIzaSyC_61Oky5qRv9M6nT1IB9kojl7j_OTQGx4',
+          key: process.env.GOOGLE_MAPS_API_KEY,
         },
       });
 
       return this.parseDistanceMatrixResponse(response);
-      // Handle the result
     } catch (error) {
-      console.log(error);
+      throw new FailureGettingDistance();
     }
   }
 

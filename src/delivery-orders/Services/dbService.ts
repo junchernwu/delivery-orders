@@ -1,50 +1,62 @@
 import { Injectable } from '@nestjs/common';
-import { Order, OrderStatus } from '../delivery-orders.entity';
+import { DeliveryOrder, OrderStatus } from '../delivery-orders.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { FailureSavingOrderToDB } from '../ExceptionHandler/CustomErrors';
+import {
+  FailureRetrievingOrdersFromDbWithPageAndLimit,
+  FailureSavingOrderToDB,
+} from '../ExceptionHandler/CustomErrors';
 
+export enum ResultFromSaveToDb {
+  INVALID_ID = 'invalid_id',
+  TAKEN = 'taken',
+  SUCCESS = 'success',
+}
 @Injectable()
 export class DbService {
   constructor(
-    @InjectRepository(Order)
-    private orderRepository: Repository<Order>,
+    @InjectRepository(DeliveryOrder)
+    private orderRepository: Repository<DeliveryOrder>,
     private dataSource: DataSource,
   ) {}
 
-  async saveOrder(order: Order): Promise<Order> {
+  async saveOrder(order: DeliveryOrder): Promise<DeliveryOrder> {
     try {
-      return (await this.orderRepository.save(order)) as Order;
+      const saveResponse = await this.orderRepository.save(order);
+      return saveResponse;
     } catch (error) {
       // Handle the exception
-      throw new FailureSavingOrderToDB(order.id);
+      throw new FailureSavingOrderToDB(order.orderId);
     }
   }
 
-  async findAll(): Promise<Order[]> {
+  async findAll(): Promise<DeliveryOrder[]> {
     return this.orderRepository.find();
   }
-  async takeOrderWithLock(orderId: number) {
+  async takeOrderWithLock(orderId: string): Promise<ResultFromSaveToDb> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
       const order = await queryRunner.manager
-        .getRepository(Order)
+        .getRepository(DeliveryOrder)
         .createQueryBuilder('order')
         .setLock('pessimistic_write')
-        .where('order.id = :id', { id: orderId })
+        .where('order.orderId = :id', { id: orderId })
         .getOne();
-
-      if (order && order.status === OrderStatus.UNASSIGNED) {
+      // Check if order is present
+      if (order == null) {
+        await queryRunner.rollbackTransaction();
+        return ResultFromSaveToDb.INVALID_ID;
+      } else if (order.status === OrderStatus.UNASSIGNED) {
         order.status = OrderStatus.TAKEN;
         await queryRunner.manager.save(order);
         await queryRunner.commitTransaction();
-        return true;
+        return ResultFromSaveToDb.SUCCESS;
       } else {
         await queryRunner.rollbackTransaction();
-        return false;
+        return ResultFromSaveToDb.TAKEN;
       }
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -57,7 +69,7 @@ export class DbService {
     await queryRunner.connect();
     try {
       return await queryRunner.manager
-        .getRepository(Order)
+        .getRepository(DeliveryOrder)
         .createQueryBuilder('order')
         .select()
         .orderBy('order.dateTimeField', 'ASC')
@@ -65,7 +77,7 @@ export class DbService {
         .take(limit)
         .getMany();
     } catch (error) {
-      console.log(error);
+      throw new FailureRetrievingOrdersFromDbWithPageAndLimit();
     } finally {
       await queryRunner.release();
     }

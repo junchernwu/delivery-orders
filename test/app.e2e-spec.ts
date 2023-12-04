@@ -7,24 +7,26 @@ import { CreateOrderDto } from '../src/delivery-orders/dto/create-order.dto';
 import { Connection, createConnection, QueryRunner } from 'typeorm';
 import { DataSourceOptions } from 'typeorm/data-source/DataSourceOptions';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm/dist/interfaces/typeorm-options.interface';
-import { Order } from '../src/delivery-orders/delivery-orders.entity';
+import { DeliveryOrder } from '../src/delivery-orders/delivery-orders.entity';
 import { DeliveryOrdersService } from '../src/delivery-orders/delivery-orders.service';
 import { DistanceService } from '../src/delivery-orders/Services/distanceService';
 import { DbService } from '../src/delivery-orders/Services/dbService';
+import * as dotenv from 'dotenv';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
   let queryRunner: QueryRunner;
   let connection: Connection;
+  dotenv.config();
 
   const connectionOptions = {
     type: 'mysql',
     host: 'localhost',
-    port: 3307,
-    username: 'root',
-    password: 'root',
-    database: 'test',
-    entities: [Order],
+    port: process.env.DB_TEST_PORT,
+    username: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    entities: [DeliveryOrder],
     synchronize: true,
   };
   const createOrderDto: CreateOrderDto = {
@@ -32,12 +34,11 @@ describe('AppController (e2e)', () => {
     destination: ['1.2830', '103.8513'],
   };
   beforeEach(async () => {
-    jest.setTimeout(10000); // Set a timeout of 1000ms (1 second)
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         DeliveryOrdersModule,
         TypeOrmModule.forRoot(connectionOptions as TypeOrmModuleOptions),
-        TypeOrmModule.forFeature([Order]),
+        TypeOrmModule.forFeature([DeliveryOrder]),
       ],
       providers: [DeliveryOrdersService, DistanceService, DbService],
     }).compile();
@@ -59,7 +60,7 @@ describe('AppController (e2e)', () => {
     if (queryRunner) {
       await queryRunner.connect();
       await queryRunner.startTransaction();
-      await queryRunner.clearDatabase('test');
+      await queryRunner.clearDatabase(process.env.DB_NAME);
       await queryRunner.commitTransaction();
       await queryRunner.release();
     }
@@ -80,7 +81,7 @@ describe('AppController (e2e)', () => {
     const response2 = await request(app.getHttpServer())
       .post('/orders')
       .send(createOrderDto);
-    expect(response1.body.id).not.toEqual(response2.body.id);
+    expect(response1.body.orderId).not.toEqual(response2.body.orderId);
   });
 
   it('/ (POST returns error when array more than two strings)', async () => {
@@ -134,16 +135,28 @@ describe('AppController (e2e)', () => {
       .expect(201);
     await queryRunner.connect();
     const orders = await queryRunner.manager
-      .getRepository(Order)
+      .getRepository(DeliveryOrder)
       .createQueryBuilder('order')
       .getMany();
 
     expect(orders).toHaveLength(1);
-    const orderId = orders[0].id;
+    const orderId = orders[0].orderId;
     return request(app.getHttpServer())
       .patch(`/orders/${orderId}`)
       .send({ status: 'TAKEN' })
       .expect(200);
+  });
+
+  it('/ (PATCH when order id is not in database)', async () => {
+    // Setup, add Order to table and update status to TAKEN
+    await queryRunner.connect();
+    const result = await request(app.getHttpServer())
+      .patch(`/orders/123456`)
+      .send({ status: 'TAKEN' });
+    expect(result.statusCode).toEqual(406);
+    expect(result.body.message).toEqual(
+      'Delivery order Id 123456 does not exist',
+    );
   });
 
   it('/ (PATCH when order is TAKEN)', async () => {
@@ -154,21 +167,24 @@ describe('AppController (e2e)', () => {
       .expect(201);
     await queryRunner.connect();
     const orders = await queryRunner.manager
-      .getRepository(Order)
+      .getRepository(DeliveryOrder)
       .createQueryBuilder('order')
       .getMany();
 
     expect(orders).toHaveLength(1);
-    const orderId = orders[0].id;
+    const orderId = orders[0].orderId;
     await request(app.getHttpServer())
       .patch(`/orders/${orderId}`)
       .send({ status: 'TAKEN' })
       .expect(200);
     // Expect that request fails
-    return request(app.getHttpServer())
+    const result = await request(app.getHttpServer())
       .patch(`/orders/${orderId}`)
-      .send({ status: 'TAKEN' })
-      .expect(406);
+      .send({ status: 'TAKEN' });
+    expect(result.statusCode).toEqual(406);
+    expect(result.body.message).toEqual(
+      `Delivery has been taken for order ${orderId}`,
+    );
   });
 
   it('/ (PATCH when request body is of wrong status)', async () => {
@@ -178,12 +194,12 @@ describe('AppController (e2e)', () => {
       .expect(201);
     await queryRunner.connect();
     const orders = await queryRunner.manager
-      .getRepository(Order)
+      .getRepository(DeliveryOrder)
       .createQueryBuilder('order')
       .getMany();
 
     expect(orders).toHaveLength(1);
-    const orderId = orders[0].id;
+    const orderId = orders[0].orderId;
     const result = await request(app.getHttpServer())
       .patch(`/orders/${orderId}`)
       .send({ status: 'TAKE' });
@@ -199,12 +215,12 @@ describe('AppController (e2e)', () => {
       .expect(201);
     await queryRunner.connect();
     const orders = await queryRunner.manager
-      .getRepository(Order)
+      .getRepository(DeliveryOrder)
       .createQueryBuilder('order')
       .getMany();
 
     expect(orders).toHaveLength(1);
-    const orderId = orders[0].id;
+    const orderId = orders[0].orderId;
     // Make concurrent requests using dbService
     const numConcurrentRequests = 10;
     const requests = Array.from({ length: numConcurrentRequests }, () =>
@@ -241,7 +257,7 @@ describe('AppController (e2e)', () => {
     // Test get records by page and limit
     await queryRunner.connect();
     const ordersInDb = await queryRunner.manager
-      .getRepository(Order)
+      .getRepository(DeliveryOrder)
       .createQueryBuilder('order')
       .orderBy('order.dateTimeField', 'ASC')
       .getMany();
@@ -256,8 +272,8 @@ describe('AppController (e2e)', () => {
     expect(expectedPageResult.length).toEqual(retrievedPageResult.body.length);
     for (let i = 0; i < expectedPageResult.length; i++) {
       const expectedOrder = expectedPageResult[i];
-      const retrievedOrder = retrievedPageResult.body[i] as Order;
-      expect(expectedOrder.id).toEqual(retrievedOrder.id);
+      const retrievedOrder = retrievedPageResult.body[i] as DeliveryOrder;
+      expect(expectedOrder.orderId).toEqual(retrievedOrder.orderId);
       const expectedDate = expectedOrder.dateTimeField as Date;
       const retrievedDate = new Date(retrievedOrder.dateTimeField);
 

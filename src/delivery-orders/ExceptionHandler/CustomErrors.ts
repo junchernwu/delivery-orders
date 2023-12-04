@@ -9,8 +9,26 @@ export class DeliveryHasBeenTaken extends HttpException {
   }
 }
 
+export class DeliveryIdDoesNotExist extends HttpException {
+  constructor(message: string) {
+    super(
+      `Delivery order Id ${message} does not exist`,
+      HttpStatus.NOT_ACCEPTABLE,
+    );
+  }
+}
+
+export class FailureRetrievingOrdersFromDbWithPageAndLimit extends HttpException {
+  constructor() {
+    super(
+      `Failed to retrieve orders with page and limit`,
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
+}
+
 export class FailureSavingOrderToDB extends HttpException {
-  constructor(id: number) {
+  constructor(id: string) {
     super(
       `Failed to save order with id ${id}`,
       HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE,
@@ -39,6 +57,12 @@ export class InvalidLimit extends HttpException {
 export class InvalidRequestBody extends HttpException {
   constructor() {
     super('Request body is of wrong status', HttpStatus.NOT_ACCEPTABLE);
+  }
+}
+
+export class FailureGettingDistance extends HttpException {
+  constructor() {
+    super('Failed to retrieve distance', HttpStatus.SERVICE_UNAVAILABLE);
   }
 }
 

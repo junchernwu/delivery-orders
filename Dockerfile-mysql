@@ -1,0 +1,12 @@
+FROM mysql:8.0-debian
+
+
+# Install MySQL client (using apk)
+RUN apt-get update && apt-get install -y mysql-client
+
+
+# Set the working directory
+WORKDIR /docker-entrypoint-initdb.d
+
+# Copy your init script
+COPY start.sh .

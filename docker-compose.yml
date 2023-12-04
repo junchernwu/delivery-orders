@@ -2,40 +2,64 @@ version: "3"
 
 services:
   mysql:
-    image: mysql:8
+    build:
+      context: .
+      dockerfile: Dockerfile-mysql
+    platform: linux/x86_64
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: test
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
+    volumes:
+      - ./start.sh:/docker-entrypoint-initdb.d/start.sh
     ports:
-      - "3306:3306"
+      - "${DB_PORT}:3306"
     networks:
       - mynetwork
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   db-test:
     image: mysql:8
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: test
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
     ports:
-      - "3307:3306"
+      - "${DB_TEST_PORT}:3306"
     networks:
       - mynetwork
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: nest-delivery-application
-    environment:
-      - PORT=${PORT}
     ports:
-      - '3000:3000'
+      - '8000:3000'
+    environment:
+      - DB_USER=${DB_USER}
+      - DB_PORT=${DB_PORT}
+      - DB_TEST_PORT=${DB_TEST_PORT}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy  # Wait for the health check of the 'mysql' service
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://mysql:${DB_PORT}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     volumes:
       - ./src:/app/src
     networks:
       - mynetwork
+
 networks:
   mynetwork:
     driver: bridge

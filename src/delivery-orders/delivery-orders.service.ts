@@ -1,8 +1,9 @@
-import { Order } from './delivery-orders.entity';
+import { DeliveryOrder } from './delivery-orders.entity';
 import { Injectable } from '@nestjs/common';
-import { DbService } from './Services/dbService';
+import { DbService, ResultFromSaveToDb } from './Services/dbService';
 import {
   DeliveryHasBeenTaken,
+  DeliveryIdDoesNotExist,
   InvalidIntegerForPageOrLimit,
   InvalidLimit,
   InvalidPage,
@@ -20,9 +21,9 @@ export class DeliveryOrdersService {
   private isNotValidInteger(num: number): boolean {
     return isNaN(num) || !Number.isInteger(Number(num));
   }
-  async create(createOrderDto: CreateOrderDto): Promise<Order> {
+  async create(createOrderDto: CreateOrderDto): Promise<DeliveryOrder> {
     const { origin, destination } = createOrderDto;
-    const order = new Order();
+    const order = new DeliveryOrder();
     order.distance = await this.distanceService.getDistance(
       origin,
       destination,
@@ -47,11 +48,15 @@ export class DeliveryOrdersService {
     return await this.dbService.retrieveOrdersWithPageAndLimit(page, limit);
   }
 
-  async updateOrderStatus(id: number): Promise<string> {
+  async updateOrderStatus(id: string): Promise<string> {
     const result = await this.dbService.takeOrderWithLock(id);
-    if (result === false) {
+    if (result === ResultFromSaveToDb.INVALID_ID) {
+      throw new DeliveryIdDoesNotExist(id.toString());
+    }
+    if (result === ResultFromSaveToDb.TAKEN) {
       throw new DeliveryHasBeenTaken(id.toString());
-    } else {
+    }
+    if (result === ResultFromSaveToDb.SUCCESS) {
       return 'success';
     }
   }

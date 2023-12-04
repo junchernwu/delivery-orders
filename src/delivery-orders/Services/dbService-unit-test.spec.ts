@@ -1,15 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DbService } from './dbService';
+import { DbService, ResultFromSaveToDb } from './dbService';
 import { DataSource, getRepository, QueryRunner, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Order, OrderStatus } from '../delivery-orders.entity';
+import { DeliveryOrder, OrderStatus } from '../delivery-orders.entity';
 import { FailureSavingOrderToDB } from '../ExceptionHandler/CustomErrors';
 
-const order = new Order();
-order.id = 123;
-describe('DbService', () => {
+const order = new DeliveryOrder();
+order.orderId = '123';
+describe('DbService unit test', () => {
   let service: DbService;
-  let orderRepository: Repository<Order>;
+  let orderRepository: Repository<DeliveryOrder>;
   let dataSource: DataSource;
   const qr = {
     manager: {
@@ -17,7 +17,7 @@ describe('DbService', () => {
     },
   } as QueryRunner;
   class ConnectionMock {
-    createQueryRunner(mode?: 'master' | 'slave'): QueryRunner {
+    createQueryRunner(): QueryRunner {
       return qr;
     }
   }
@@ -36,7 +36,7 @@ describe('DbService', () => {
       providers: [
         DbService,
         {
-          provide: getRepositoryToken(Order),
+          provide: getRepositoryToken(DeliveryOrder),
           useClass: Repository,
         },
         {
@@ -47,7 +47,7 @@ describe('DbService', () => {
     }).compile();
 
     service = module.get<DbService>(DbService);
-    orderRepository = module.get(getRepositoryToken(Order));
+    orderRepository = module.get(getRepositoryToken(DeliveryOrder));
     dataSource = module.get<DataSource>(DataSource);
   });
 
@@ -58,23 +58,23 @@ describe('DbService', () => {
   });
 
   it('should throw FailureSavingOrderToDB', async () => {
-    const order = new Order();
+    const order = new DeliveryOrder();
     order.status = OrderStatus.UNASSIGNED;
     order.distance = 10;
     order.dateTimeField = new Date();
-    order.id = 123;
+    order.orderId = '123';
 
     const error = new Error('Test error');
     jest.spyOn(service['orderRepository'], 'save').mockRejectedValue(error);
     await expect(service.saveOrder(order)).rejects.toStrictEqual(
-      new FailureSavingOrderToDB(order.id),
+      new FailureSavingOrderToDB(order.orderId),
     );
   });
 
   it('takeOrderWithLock should return true when order is not taken', async () => {
     // Create a sample order
-    const order = new Order();
-    order.id = 1;
+    const order = new DeliveryOrder();
+    order.orderId = '123';
     order.status = OrderStatus.UNASSIGNED;
     const queryRunner = dataSource.createQueryRunner();
     jest.spyOn(queryRunner.manager, 'getRepository').mockImplementation(() => {
@@ -95,7 +95,7 @@ describe('DbService', () => {
       };
     });
 
-    const result = await service.takeOrderWithLock(order.id);
+    const result = await service.takeOrderWithLock(order.orderId);
     expect(result).toBeTruthy();
     expect(queryRunner.manager.save).toHaveBeenCalledWith(order);
     expect(queryRunner.commitTransaction).toHaveBeenCalled();
@@ -103,8 +103,8 @@ describe('DbService', () => {
   });
 
   it('takeOrderWithLock should return false when order is taken', async () => {
-    const order = new Order();
-    order.id = 1;
+    const order = new DeliveryOrder();
+    order.orderId = '1';
     order.status = OrderStatus.TAKEN;
     const queryRunner = dataSource.createQueryRunner();
 
@@ -126,16 +126,16 @@ describe('DbService', () => {
       };
     });
 
-    const result = await service.takeOrderWithLock(order.id);
-    expect(result).toBe(false);
+    const result = await service.takeOrderWithLock(order.orderId);
+    expect(result).toBe(ResultFromSaveToDb.INVALID_ID);
     expect(queryRunner.rollbackTransaction).toHaveBeenCalled();
     expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
     expect(queryRunner.release).toHaveBeenCalled();
   });
 
   it('should retrieve orders with page and limit', async () => {
-    const order1 = new Order();
-    order1.id = 1;
+    const order1 = new DeliveryOrder();
+    order1.orderId = '1';
     order1.status = OrderStatus.TAKEN;
     const orders = [order1];
     const queryRunner = dataSource.createQueryRunner();
