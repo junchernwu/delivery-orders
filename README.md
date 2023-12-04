@@ -13,7 +13,7 @@
 1. RUN $ docker-compose up --build to instantiate test db
 2. $ npm run test
 
-# e2e tests
+# Integration test
 1. RUN $ docker-compose up --build to instantiate test db
 2. $ npm run test:e2e
 
