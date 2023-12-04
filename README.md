@@ -1,8 +1,8 @@
 ## Running the app
 
 ```bash
-1. Update the .env file for GOOGLE_MAPS_API_KEY field
-2. RUN $ docker-compose up --build
+# 1. First, update the .env file for GOOGLE_MAPS_API_KEY field
+$ docker-compose up --build
 
 ```
 
@@ -10,12 +10,13 @@
 
 ```bash
 # unit tests
-1. RUN $ docker-compose up --build to instantiate test db
-2. $ npm run test
+# 1. First, update the .env file for GOOGLE_MAPS_API_KEY field
+# 2. instantiate test db
+$ docker-compose up --build 
+$ npm run test
 
 # Integration test
-1. RUN $ docker-compose up --build to instantiate test db
-2. $ npm run test:e2e
+$ npm run test:e2e
 
 ```
 
