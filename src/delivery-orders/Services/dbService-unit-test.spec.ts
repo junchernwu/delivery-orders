@@ -127,7 +127,7 @@ describe('DbService unit test', () => {
     });
 
     const result = await service.takeOrderWithLock(order.orderId);
-    expect(result).toBe(ResultFromSaveToDb.INVALID_ID);
+    expect(result).toBe(ResultFromSaveToDb.TAKEN);
     expect(queryRunner.rollbackTransaction).toHaveBeenCalled();
     expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
     expect(queryRunner.release).toHaveBeenCalled();
