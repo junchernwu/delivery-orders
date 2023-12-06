@@ -11,6 +11,19 @@ import {
 import { CreateOrderDto } from './dto/create-order.dto';
 import { DistanceService } from './Services/distanceService';
 
+export type DeliveryOrderResponseFormat = {
+  id: string;
+  distance: number;
+  status: string;
+};
+export const convertDeliveryOrderToRightFormat = (
+  deliveryOrder: DeliveryOrder,
+): DeliveryOrderResponseFormat => ({
+  id: deliveryOrder.orderId,
+  distance: deliveryOrder.distance,
+  status: deliveryOrder.status.toUpperCase(),
+});
+
 @Injectable()
 export class DeliveryOrdersService {
   constructor(
@@ -21,7 +34,9 @@ export class DeliveryOrdersService {
   private isNotValidInteger(num: number): boolean {
     return isNaN(num) || !Number.isInteger(Number(num));
   }
-  async create(createOrderDto: CreateOrderDto): Promise<DeliveryOrder> {
+  async create(
+    createOrderDto: CreateOrderDto,
+  ): Promise<DeliveryOrderResponseFormat> {
     const { origin, destination } = createOrderDto;
     const order = new DeliveryOrder();
     order.distance = await this.distanceService.getDistance(
@@ -29,7 +44,8 @@ export class DeliveryOrdersService {
       destination,
     );
     order.dateTimeField = new Date();
-    return this.dbService.saveOrder(order);
+    const saveResult = await this.dbService.saveOrder(order);
+    return convertDeliveryOrderToRightFormat(saveResult);
   }
 
   async getOrdersWithPageAndLimit(page: number, limit: number) {
@@ -45,10 +61,17 @@ export class DeliveryOrdersService {
     if (limit < 1) {
       throw new InvalidLimit();
     }
-    return await this.dbService.retrieveOrdersWithPageAndLimit(page, limit);
+    const orders = await this.dbService.retrieveOrdersWithPageAndLimit(
+      page,
+      limit,
+    );
+    const reformatOrders: DeliveryOrderResponseFormat[] = orders.map((order) =>
+      convertDeliveryOrderToRightFormat(order),
+    );
+    return reformatOrders;
   }
 
-  async updateOrderStatus(id: string): Promise<string> {
+  async updateOrderStatus(id: string): Promise<any> {
     const result = await this.dbService.takeOrderWithLock(id);
     if (result === ResultFromSaveToDb.INVALID_ID) {
       throw new DeliveryIdDoesNotExist(id.toString());
@@ -57,7 +80,7 @@ export class DeliveryOrdersService {
       throw new DeliveryHasBeenTaken(id.toString());
     }
     if (result === ResultFromSaveToDb.SUCCESS) {
-      return 'success';
+      return { status: ResultFromSaveToDb.SUCCESS };
     }
   }
 }

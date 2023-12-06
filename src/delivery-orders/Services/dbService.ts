@@ -8,9 +8,9 @@ import {
 } from '../ExceptionHandler/CustomErrors';
 
 export enum ResultFromSaveToDb {
-  INVALID_ID = 'invalid_id',
-  TAKEN = 'taken',
-  SUCCESS = 'success',
+  INVALID_ID = 'INVALID_ID',
+  TAKEN = 'TAKEN',
+  SUCCESS = 'SUCCESS',
 }
 @Injectable()
 export class DbService {
@@ -49,7 +49,7 @@ export class DbService {
       if (order == null) {
         await queryRunner.rollbackTransaction();
         return ResultFromSaveToDb.INVALID_ID;
-      } else if (order.status === OrderStatus.UNASSIGNED) {
+      } else if (order.status.toUpperCase() === OrderStatus.UNASSIGNED) {
         order.status = OrderStatus.TAKEN;
         await queryRunner.manager.save(order);
         await queryRunner.commitTransaction();

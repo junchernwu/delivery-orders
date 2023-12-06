@@ -10,8 +10,10 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { DeliveryOrdersService } from './delivery-orders.service';
-import { DeliveryOrder } from './delivery-orders.entity';
+import {
+  DeliveryOrderResponseFormat,
+  DeliveryOrdersService,
+} from './delivery-orders.service';
 import { InvalidRequestBody } from './ExceptionHandler/CustomErrors';
 
 @Controller('/orders')
@@ -20,8 +22,12 @@ export class DeliveryOrdersController {
 
   @Post('/')
   @UsePipes(new ValidationPipe())
-  async create(@Body() createOrderDto: CreateOrderDto): Promise<DeliveryOrder> {
-    return this.deliveryOrderService.create(createOrderDto);
+  async create(
+    @Body() createOrderDto: CreateOrderDto,
+  ): Promise<DeliveryOrderResponseFormat> {
+    const deliveryOrder =
+      await this.deliveryOrderService.create(createOrderDto);
+    return deliveryOrder;
   }
 
   @Get()
@@ -33,7 +39,7 @@ export class DeliveryOrdersController {
   takeOrder(
     @Param('id') id: string,
     @Body() body: { status: string },
-  ): Promise<string> {
+  ): Promise<any> {
     // Check if the status is correct
     if (body.status != 'TAKEN') {
       throw new InvalidRequestBody();

@@ -1,8 +1,8 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 export enum OrderStatus {
-  TAKEN = 'taken',
-  UNASSIGNED = 'unassigned',
+  TAKEN = 'TAKEN',
+  UNASSIGNED = 'UNASSIGNED',
 }
 
 @Entity({ name: 'DeliveryOrders' })

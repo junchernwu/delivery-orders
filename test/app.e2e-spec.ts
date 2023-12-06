@@ -8,7 +8,11 @@ import { Connection, createConnection, QueryRunner } from 'typeorm';
 import { DataSourceOptions } from 'typeorm/data-source/DataSourceOptions';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm/dist/interfaces/typeorm-options.interface';
 import { DeliveryOrder } from '../src/delivery-orders/delivery-orders.entity';
-import { DeliveryOrdersService } from '../src/delivery-orders/delivery-orders.service';
+import {
+  convertDeliveryOrderToRightFormat,
+  DeliveryOrderResponseFormat,
+  DeliveryOrdersService,
+} from '../src/delivery-orders/delivery-orders.service';
 import { DistanceService } from '../src/delivery-orders/Services/distanceService';
 import { DbService } from '../src/delivery-orders/Services/dbService';
 import * as dotenv from 'dotenv';
@@ -81,7 +85,7 @@ describe('AppController (e2e)', () => {
     const response2 = await request(app.getHttpServer())
       .post('/orders')
       .send(createOrderDto);
-    expect(response1.body.orderId).not.toEqual(response2.body.orderId);
+    expect(response1.body.id).not.toEqual(response2.body.id);
   });
 
   it('/ (POST returns error when array more than two strings)', async () => {
@@ -262,6 +266,10 @@ describe('AppController (e2e)', () => {
       .orderBy('order.dateTimeField', 'ASC')
       .getMany();
     const expectedPageResult = ordersInDb.slice(2, 4);
+    const expectedPageResultFormatted: DeliveryOrderResponseFormat[] =
+      expectedPageResult.map((order) =>
+        convertDeliveryOrderToRightFormat(order),
+      );
     const pageNum = 2;
     const limit = 2;
     const retrievedPageResult = await request(app.getHttpServer())
@@ -271,13 +279,13 @@ describe('AppController (e2e)', () => {
     // Compare the results and ensure fields are matching
     expect(expectedPageResult.length).toEqual(retrievedPageResult.body.length);
     for (let i = 0; i < expectedPageResult.length; i++) {
-      const expectedOrder = expectedPageResult[i];
-      const retrievedOrder = retrievedPageResult.body[i] as DeliveryOrder;
-      expect(expectedOrder.orderId).toEqual(retrievedOrder.orderId);
-      const expectedDate = expectedOrder.dateTimeField as Date;
-      const retrievedDate = new Date(retrievedOrder.dateTimeField);
-
-      expect(expectedDate.getTime()).toEqual(retrievedDate.getTime());
+      const expectedOrder = expectedPageResultFormatted[
+        i
+      ] as DeliveryOrderResponseFormat;
+      const retrievedOrder = retrievedPageResult.body[
+        i
+      ] as DeliveryOrderResponseFormat;
+      expect(expectedOrder.id).toEqual(retrievedOrder.id);
       expect(expectedOrder.status).toEqual(retrievedOrder.status);
     }
   }, 10000);
