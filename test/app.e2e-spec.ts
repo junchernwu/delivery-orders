@@ -88,6 +88,20 @@ describe('AppController (e2e)', () => {
     expect(response1.body.id).not.toEqual(response2.body.id);
   });
 
+  it('/ (POST with excess field in body returns error)', async () => {
+    const createOrderDtoWithExcessFields = {
+      origin: ['1.34306', '103.71903'],
+      destination: ['1.2830', '103.8513'],
+      test: '123',
+    };
+    const result = await request(app.getHttpServer())
+      .post('/orders')
+      .send(createOrderDtoWithExcessFields);
+
+    expect(result.statusCode).toEqual(406);
+    expect(result.body.message).toEqual('Request body has excess fields');
+  });
+
   it('/ (POST returns error when array more than two strings)', async () => {
     // Case 1: Origin and destination more than 2 string
     const createOrderDtoDestOriginMoreThan2String = {
@@ -191,7 +205,7 @@ describe('AppController (e2e)', () => {
     );
   });
 
-  it('/ (PATCH when request body is of wrong status)', async () => {
+  it('/ (PATCH when request body status is not TAKEN)', async () => {
     await request(app.getHttpServer())
       .post('/orders')
       .send(createOrderDto)
@@ -206,9 +220,33 @@ describe('AppController (e2e)', () => {
     const orderId = orders[0].orderId;
     const result = await request(app.getHttpServer())
       .patch(`/orders/${orderId}`)
-      .send({ status: 'TAKE' });
+      .send({ status: 'TEST' });
     expect(result.status).toEqual(406);
-    expect(result.body.message).toEqual('Request body is of wrong status');
+    expect(result.body.message).toEqual(
+      'Request body is either missing status field/ status field is not set as TAKEN/ excess fields',
+    );
+  });
+
+  it('/ (PATCH when request body has excess fields)', async () => {
+    await request(app.getHttpServer())
+      .post('/orders')
+      .send(createOrderDto)
+      .expect(201);
+    await queryRunner.connect();
+    const orders = await queryRunner.manager
+      .getRepository(DeliveryOrder)
+      .createQueryBuilder('order')
+      .getMany();
+
+    expect(orders).toHaveLength(1);
+    const orderId = orders[0].orderId;
+    const result = await request(app.getHttpServer())
+      .patch(`/orders/${orderId}`)
+      .send({ status: 'TAKE', test: 'Test' });
+    expect(result.status).toEqual(406);
+    expect(result.body.message).toEqual(
+      'Request body is either missing status field/ status field is not set as TAKEN/ excess fields',
+    );
   });
 
   it('/ (PATCH when concurrent patch requests are made)', async () => {

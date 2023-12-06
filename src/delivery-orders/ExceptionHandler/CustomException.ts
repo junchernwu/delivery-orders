@@ -16,7 +16,10 @@ export class CustomExceptionFilter implements ExceptionFilter {
     // Customize the error response
     let errorMessages: string;
     if (errorResponse.message) {
-      errorMessages = errorResponse.message.join(', ');
+      console.log(errorResponse.message);
+      if (Array.isArray(errorResponse.message)) {
+        errorMessages = errorResponse.message.join(', ');
+      }
     }
 
     const customErrorResponse = {

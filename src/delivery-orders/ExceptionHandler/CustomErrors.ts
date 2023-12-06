@@ -54,9 +54,18 @@ export class InvalidLimit extends HttpException {
   }
 }
 
-export class InvalidRequestBody extends HttpException {
+export class InvalidPatchRequestBody extends HttpException {
   constructor() {
-    super('Request body is of wrong status', HttpStatus.NOT_ACCEPTABLE);
+    super(
+      'Request body is either missing status field/ status field is not set as TAKEN/ excess fields',
+      HttpStatus.NOT_ACCEPTABLE,
+    );
+  }
+}
+
+export class InvalidPostRequestBody extends HttpException {
+  constructor() {
+    super('Request body has excess fields', HttpStatus.NOT_ACCEPTABLE);
   }
 }
 
